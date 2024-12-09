@@ -62,6 +62,9 @@ package class JavaTranslator {
   /// TODO: Make JavaClass Hashable so we can index by the object?
   package var nestedClasses: [String: [JavaClass<JavaObject>]] = [:]
 
+  /// The set of generic parameter names that have been used.
+  package var usedGenericParameterNames: Set<String> = []
+
   package init(
     swiftModuleName: String,
     environment: JNIEnvironment,
@@ -77,6 +80,7 @@ package class JavaTranslator {
   /// Clear out any per-file state when we want to start a new file.
   package func startNewFile() {
     importedSwiftModules = Self.defaultImportedSwiftModules
+    usedGenericParameterNames = []
   }
 
   /// Simplistic logging for all entities that couldn't be translated.

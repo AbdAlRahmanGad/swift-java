@@ -104,10 +104,25 @@ struct JavaClassTranslator {
     }
 
     let genericParameters = javaTypeParameters.map { param in
-      "\(param.getName()): AnyJavaObject"
+      let name = uniqueGenericParameterName(param.getName())
+      // translator.usedGenericParameterNames.insert(name)
+      return "\(name): AnyJavaObject"
     }
 
     return "<\(genericParameters.joined(separator: ", "))>"
+  }
+
+  /// TODO we nned to consider interfaces
+
+  /// Generate a unique name for a generic parameter
+  private func uniqueGenericParameterName(_ baseName: String) -> String {
+    var name = baseName
+    var index = 1
+    if translator.usedGenericParameterNames.contains(name) {
+      name = "\(baseName)\(index)"
+    }
+    translator.usedGenericParameterNames.insert(baseName)
+    return name
   }
 
   /// Prepare translation for the given Java class (or interface).
@@ -392,7 +407,10 @@ extension JavaClassTranslator {
     let staticMemberWhereClause: String
     if !javaTypeParameters.isEmpty {
       let genericParameterNames = javaTypeParameters.compactMap { typeVar in
-        typeVar.getName()
+        //// here we don't generate a unique name for the generic parameter we use existing one
+        //// problem is that this comes first -> Solution: we don't add it to our Set
+        let name = uniqueGenericParameterName(typeVar.getName())
+        return name
       }
 
       let genericArgumentClause = "<\(genericParameterNames.joined(separator: ", "))>"
