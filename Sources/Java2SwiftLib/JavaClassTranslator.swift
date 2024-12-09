@@ -104,10 +104,29 @@ struct JavaClassTranslator {
     }
 
     let genericParameters = javaTypeParameters.map { param in
-      "\(param.getName()): AnyJavaObject"
+      let name = uniqueGenericParameterName(param.getName())
+      translator.usedGenericParameterNames.insert(name)
+      return "\(name): AnyJavaObject"
     }
 
     return "<\(genericParameters.joined(separator: ", "))>"
+  }
+//// we should track the level of the generic parameter
+
+
+////// we make the index 0
+/// and if we encounter an extension or a nested class we increment the index
+
+/// we track the level of the generic parameter by the index
+
+  /// Generate a unique name for a generic parameter
+  private func uniqueGenericParameterName(_ baseName: String) -> String {
+    var name = baseName
+    var index = 1
+    if translator.usedGenericParameterNames.contains(name) {
+      name = "\(baseName)\(index)"
+    }
+    return name
   }
 
   /// Prepare translation for the given Java class (or interface).
@@ -273,6 +292,7 @@ extension JavaClassTranslator {
     var allDecls: [DeclSyntax] = []
     allDecls.append(renderPrimaryType())
     allDecls.append(contentsOf: renderNestedClasses())
+    /// the problem is here
     if let staticMemberExtension = renderStaticMemberExtension() {
       allDecls.append(staticMemberExtension)
     }
@@ -357,7 +377,7 @@ extension JavaClassTranslator {
 
     // If there is a parent type, wrap this type up in an extension of that
     // parent type.
-    if let swiftParentType {
+    if let swiftParentType { //// TODO modify
       classDecl =
         """
         extension \(raw: swiftParentType) {
@@ -392,7 +412,10 @@ extension JavaClassTranslator {
     let staticMemberWhereClause: String
     if !javaTypeParameters.isEmpty {
       let genericParameterNames = javaTypeParameters.compactMap { typeVar in
-        typeVar.getName()
+        //// here we don't generate a unique name for the generic parameter we use existing one
+        //// problem is that this comes first -> Solution: we don't add it to our Set
+        let name = uniqueGenericParameterName(typeVar.getName())
+        return name
       }
 
       let genericArgumentClause = "<\(genericParameterNames.joined(separator: ", "))>"
@@ -590,7 +613,7 @@ extension JavaClassTranslator {
 
       return """
         \(methodAttribute)\(raw: accessModifier)\(raw: overrideOpt)func \(raw: swiftMethodName)\(raw: genericParameterClause)(\(raw: parametersStr))\(raw: throwsStr)\(raw: resultTypeStr)\(raw: whereClause)
-        
+
         \(raw: accessModifier)\(raw: overrideOpt)func \(raw: swiftMethodName)Optional\(raw: genericParameterClause)(\(raw: parameters.map(\.clause.description).joined(separator: ", ")))\(raw: throwsStr) -> \(raw: resultOptional)\(raw: whereClause) {
           \(body)
         }
@@ -616,7 +639,7 @@ extension JavaClassTranslator {
     if let optionalType = typeName.optionalWrappedType() {
       let setter = if !javaField.isFinal {
       """
-      
+
         set {
           \(swiftFieldName) = newValue.toJavaOptional()
         }
@@ -628,7 +651,7 @@ extension JavaClassTranslator {
       \(fieldAttribute)(isFinal: \(raw: javaField.isFinal))
       public var \(raw: swiftFieldName): \(raw: typeName)
 
-      
+
       public var \(raw: swiftFieldName)Optional: \(raw: optionalType) {
         get {
           Optional(javaOptional: \(raw: swiftFieldName))
@@ -688,7 +711,7 @@ extension JavaClassTranslator {
                   ? "self.init(javaHolder: \($0.getName()).javaHolder)"
                   : "self = \($0.getName())")
             } else {
-              fatalError("Enum value \($0.getName()) was unexpectedly nil, please re-run Java2Swift on the most updated Java class") 
+              fatalError("Enum value \($0.getName()) was unexpectedly nil, please re-run Java2Swift on the most updated Java class")
             }
       """
     }.joined(separator: "\n"))
